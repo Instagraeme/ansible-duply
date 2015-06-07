@@ -1,0 +1,35 @@
+---
+- name: Install necessary packages
+  run_once: true
+  apt: name={{ item }} state=latest
+  sudo: yes
+  with_items:
+    - duply
+    - python-boto
+
+- name: Create duply configuration
+  command: /usr/bin/duply {{ backup_name }} create
+
+- name: Ensure ~/.duply directory exists
+  run_once: true
+  file: path=~/.duply/{{ backup_name }} state=directory mode=0700
+
+- name: Populate exclude file
+  copy:
+    content: "{{ exclude }}"
+    dest: ~/.duply/{{ backup_name }}/exclude  
+
+- name: Modify Configuration File
+  lineinfile:
+    dest: ~/.duply/{{ backup_name }}/conf
+    regexp: '{{ item.regexp }}'
+    line: '{{ item.line }}'
+    backrefs: yes
+  with_items:
+    - { regexp: '^GPG_KEY=', line: '#GPG_KEY=' }
+    - { regexp: "^GPG_PW='_GPG_PASSWORD_'", line: "GPG_PW='{{ gpg_password }}'" }
+    - { regexp: "TARGET=", line: "TARGET='{{ s3_target }}'" }
+    - { regexp: "#TARGET_USER=", line: "TARGET_USER='{{ s3_user }}'" }
+    - { regexp: "#TARGET_PASS=", line: "TARGET_PASS='{{ s3_secret }}'" }
+    - { regexp: "SOURCE=", line: "SOURCE='{{ source_dir }}'" }
+    - { regexp: "MAX_AGE", line: "MAX_AGE='{{ maximum_age }}'" }
